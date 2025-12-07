@@ -122,8 +122,10 @@ python main.py
 - Collision detection using rectangle intersection
 
 ### Video Processing
-- 640x480 camera capture, scaled to 1280x720 display
+- 1280x720 HD camera capture (720p)
+- High-quality LANCZOS4 interpolation for scaling
 - BGR→RGB color space conversion
+- MJPG compression for better quality
 - Surface rotation and alpha blending
 - Real-time overlay rendering at 60 FPS
 

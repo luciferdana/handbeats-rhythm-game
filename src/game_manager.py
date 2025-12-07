@@ -70,12 +70,25 @@ class GameManager:
         # IMAGE/VIDEO PROCESSING
         self.hand_tracker = HandTracker()
         self.camera = cv2.VideoCapture(0)
+        
+        # Set HD resolution
         self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
         self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
+        
+        # Optimize video quality
+        self.camera.set(cv2.CAP_PROP_FPS, 60)  # Higher FPS for smoother video
+        self.camera.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))  # Better compression
+        self.camera.set(cv2.CAP_PROP_AUTOFOCUS, 1)  # Enable autofocus
+        self.camera.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)  # Auto exposure for better lighting
 
         if not self.camera.isOpened():
             print("❌ Error: Cannot open camera")
             sys.exit(1)
+        
+        # Verify actual resolution
+        actual_width = self.camera.get(cv2.CAP_PROP_FRAME_WIDTH)
+        actual_height = self.camera.get(cv2.CAP_PROP_FRAME_HEIGHT)
+        print(f"✓ Camera initialized: {int(actual_width)}x{int(actual_height)}")
 
         # Game components
         self.lane_manager = None

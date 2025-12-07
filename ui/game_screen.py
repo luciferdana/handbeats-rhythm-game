@@ -88,8 +88,11 @@ class GameScreen:
         # VIDEO PROCESSING: Convert BGR to RGB
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-        # Resize to fit screen if needed
-        frame_resized = cv2.resize(frame_rgb, (SCREEN_WIDTH, SCREEN_HEIGHT - TOPBAR_HEIGHT))
+        # Resize to fit screen with high-quality interpolation
+        # INTER_LANCZOS4: Best quality for upscaling/downscaling
+        target_height = SCREEN_HEIGHT - TOPBAR_HEIGHT
+        frame_resized = cv2.resize(frame_rgb, (SCREEN_WIDTH, target_height), 
+                                   interpolation=cv2.INTER_LANCZOS4)
 
         # VIDEO PROCESSING: Convert to pygame surface
         # Rotate and transpose for proper orientation

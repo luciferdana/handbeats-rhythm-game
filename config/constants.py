@@ -9,9 +9,14 @@ SCREEN_HEIGHT = 720
 FPS = 60
 
 # ===== CAMERA CONFIGURATION (VIDEO PROCESSING) =====
-CAMERA_WIDTH = 640
-CAMERA_HEIGHT = 480
+# HD Resolution for better video quality
+CAMERA_WIDTH = 1280   # HD 720p width
+CAMERA_HEIGHT = 720   # HD 720p height
 CAMERA_FLIP_HORIZONTAL = True
+
+# Alternative resolutions (uncomment if needed):
+# Full HD 1080p: CAMERA_WIDTH = 1920, CAMERA_HEIGHT = 1080
+# 4K: CAMERA_WIDTH = 3840, CAMERA_HEIGHT = 2160
 
 # ===== COLOR PALETTE =====
 # Background
