@@ -33,10 +33,10 @@ def main():
     print("  HANDBEATS - GESTURE RHYTHM GAME")
     print("=" * 60)
     print("\nMULTIMEDIA PROCESSING COMPONENTS:")
-    print("  ✓ IMAGE: MediaPipe hand detection & tracking")
-    print("  ✓ AUDIO: Seamless music loop + sound effects")
-    print("  ✓ VIDEO: Real-time camera overlay rendering")
-    print("\nTeam: Ferdana, Yesa, Nydia")
+    print("  [OK] IMAGE: MediaPipe hand detection & tracking")
+    print("  [OK] AUDIO: Seamless music loop + sound effects")
+    print("  [OK] VIDEO: Real-time camera overlay rendering")
+    print("\nTeam: Ferdana")
     print("Course: Sistem/Teknologi Multimedia\n")
     print("=" * 60)
     print("\nInitializing game...\n")
@@ -47,11 +47,11 @@ def main():
         game.run()
 
     except KeyboardInterrupt:
-        print("\n\n⚠ Game interrupted by user")
+        print("\n\n[WARNING] Game interrupted by user")
         sys.exit(0)
 
     except Exception as e:
-        print(f"\n\n❌ Error: {e}")
+        print(f"\n\n[ERROR] Error: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)

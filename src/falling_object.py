@@ -9,8 +9,8 @@ from typing import Tuple
 from config.constants import (
     OBJECT_SIZE,
     OBJECT_SPAWN_Y,
-    OBJECT_TARGET_Y,
     TRACK_POSITIONS,
+    TARGET_Y_POSITIONS,
     IMAGE_KICK,
     IMAGE_SNARE,
     IMAGE_HIHAT
@@ -23,23 +23,36 @@ class FallingObject:
     Moves from top to bottom at constant speed
     """
 
-    def __init__(self, instrument: str, spawn_time: float, falling_speed: float):
+    def __init__(self, instrument: str, target_time: float, falling_speed: float):
         """
         Initialize falling object
 
         Args:
             instrument: 'kick', 'snare', or 'hihat'
-            spawn_time: Game time when object should spawn
+            target_time: Game time when object should reach target zone
             falling_speed: Pixels per frame
         """
         self.instrument = instrument
-        self.spawn_time = spawn_time
         self.falling_speed = falling_speed
 
         # Position
         self.x = TRACK_POSITIONS[instrument]
         self.y = OBJECT_SPAWN_Y
         self.size = OBJECT_SIZE
+
+        # Calculate visual X position (inverted for display)
+        from config.constants import SCREEN_WIDTH
+        self.visual_x = SCREEN_WIDTH - self.x - self.size
+
+        # Get target Y for this instrument
+        self.target_y = TARGET_Y_POSITIONS[instrument]
+
+        # Calculate spawn time: spawn early so object reaches target at target_time
+        # Distance = target_y - OBJECT_SPAWN_Y
+        # Time = Distance / (falling_speed * FPS)
+        distance = self.target_y - OBJECT_SPAWN_Y
+        fall_time = distance / (falling_speed * 60)  # 60 FPS
+        self.spawn_time = target_time - fall_time
 
         # State
         self.is_spawned = False
@@ -59,7 +72,7 @@ class FallingObject:
             self.image = pygame.transform.scale(self.image, (self.size, self.size))
         except:
             self.image = None
-            print(f"⚠ Could not load image for {instrument}")
+            print(f"Could not load image for {instrument}")
 
         # Visual effects
         self.alpha = 255
@@ -83,7 +96,7 @@ class FallingObject:
             self.y += self.falling_speed
 
             # Check if missed (passed target zone)
-            if self.y > OBJECT_TARGET_Y + 100 and not self.is_hit:
+            if self.y > self.target_y + 100 and not self.is_hit:
                 self.is_missed = True
                 self.is_dead = True
 
@@ -112,13 +125,13 @@ class FallingObject:
             # Apply alpha
             scaled_image.set_alpha(self.alpha)
 
-            # Center the scaled image
-            draw_x = self.x + (self.size - scaled_size) // 2
+            # Center the scaled image - use visual_x for display
+            draw_x = self.visual_x + (self.size - scaled_size) // 2
             draw_y = self.y + (self.size - scaled_size) // 2
 
             screen.blit(scaled_image, (draw_x, draw_y))
         else:
-            # Fallback: draw colored circle
+            # Fallback: draw colored circle - use visual_x for display
             color_map = {
                 'kick': (74, 144, 226),
                 'snare': (255, 107, 53),
@@ -126,7 +139,7 @@ class FallingObject:
             }
             color = color_map.get(self.instrument, (255, 255, 255))
 
-            center_x = self.x + self.size // 2
+            center_x = self.visual_x + self.size // 2
             center_y = self.y + self.size // 2
             pygame.draw.circle(screen, color, (center_x, center_y), self.size // 2)
 
@@ -150,7 +163,7 @@ class FallingObject:
         Returns:
             Distance in pixels (negative = before target, positive = after)
         """
-        return self.y - OBJECT_TARGET_Y
+        return self.y - self.target_y
 
     def is_in_hit_window(self, window_distance: float) -> bool:
         """
@@ -186,7 +199,7 @@ class FallingObjectManager:
             obj = FallingObject(instrument, spawn_time, falling_speed)
             self.objects.append(obj)
 
-        print(f"✓ Created {len(self.objects)} falling objects from beatmap")
+        print(f"Created {len(self.objects)} falling objects from beatmap")
 
     def update(self, dt: float, current_time: float):
         """

@@ -1,42 +1,50 @@
 """
 Hand Tracker - IMAGE PROCESSING Module
-Uses MediaPipe for real-time hand detection and tracking
-Processes video frames to extract hand positions and bounding boxes
+Uses MediaPipe for real-time hand and face detection and tracking
+Processes video frames to extract hand and chin positions
 """
 
 import cv2
 import mediapipe as mp
 import numpy as np
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, Optional
 from config.constants import (
     HAND_DETECTION_CONFIDENCE,
     HAND_TRACKING_CONFIDENCE,
     MAX_HANDS,
-    HAND_BBOX_PADDING,
-    CAMERA_WIDTH,
-    CAMERA_HEIGHT
+    TOPBAR_HEIGHT
 )
 from config.settings import GameSettings
 
 
 class HandTracker:
     """
-    Hand detection and tracking using MediaPipe
-    IMAGE PROCESSING: Real-time hand landmark detection from video frames
+    Hand and face detection and tracking using MediaPipe
+    IMAGE PROCESSING: Real-time landmark detection from video frames
     """
 
     def __init__(self):
-        """Initialize MediaPipe Hands"""
+        """Initialize MediaPipe Hands and Face Mesh"""
         self.mp_hands = mp.solutions.hands
+        self.mp_face_mesh = mp.solutions.face_mesh
         self.mp_draw = mp.solutions.drawing_utils
 
-        # Initialize hands detector
-        # IMAGE PROCESSING: Configure detection parameters
+        # Initialize hands detector - OPTIMIZED for low latency
         self.hands = self.mp_hands.Hands(
             static_image_mode=False,
             max_num_hands=MAX_HANDS,
-            min_detection_confidence=HAND_DETECTION_CONFIDENCE,
-            min_tracking_confidence=HAND_TRACKING_CONFIDENCE
+            model_complexity=0,
+            min_detection_confidence=0.5,
+            min_tracking_confidence=0.5
+        )
+
+        # Initialize face mesh - OPTIMIZED for low latency
+        self.face_mesh = self.mp_face_mesh.FaceMesh(
+            static_image_mode=False,
+            max_num_faces=1,
+            refine_landmarks=False,
+            min_detection_confidence=0.5,
+            min_tracking_confidence=0.5
         )
 
         # Drawing styles
@@ -47,240 +55,246 @@ class HandTracker:
             color=(255, 255, 255), thickness=2
         )
 
-    def process_frame(self, frame: np.ndarray) -> Optional[object]:
+        # Velocity tracking for gesture detection
+        self.prev_fingertip_positions = {}
+        self.prev_chin_position = None
+        self.velocity_threshold = 15.0  # Minimum speed (pixels per frame) for valid hit
+
+    def process_frame(self, frame: np.ndarray) -> tuple:
         """
-        Process video frame to detect hands
-        IMAGE PROCESSING: Convert BGR to RGB and run MediaPipe detection
+        Process video frame to detect hands and face.
+        Flips the frame horizontally for intuitive mirror-like control.
 
         Args:
             frame: BGR image from camera
 
         Returns:
-            MediaPipe results object
+            Tuple of (flipped_frame, hand_results, face_results)
         """
+        # === PERBAIKAN A: FLIP VISUAL (MIRROR) ===
+        frame = cv2.flip(frame, 1)
+        # ========================================
+        
         # Convert BGR to RGB (required by MediaPipe)
-        # IMAGE PROCESSING: Color space conversion
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-        # Process frame through MediaPipe
-        # IMAGE PROCESSING: Hand landmark detection
-        results = self.hands.process(rgb_frame)
+        # Process frame through MediaPipe for hands and face
+        hand_results = self.hands.process(rgb_frame)
+        face_results = self.face_mesh.process(rgb_frame)
 
-        return results
+        return frame, hand_results, face_results
 
-    def get_hand_bboxes(self, results, frame_width: int, frame_height: int) -> Dict[str, Dict]:
+    def get_fingertip_positions(self, results, screen_width: int, screen_height: int) -> Dict[str, Dict]:
         """
-        Extract bounding boxes for detected hands
-        IMAGE PROCESSING: Calculate bounding boxes from landmarks
+        Get index fingertip positions for COLLISION detection (inverted X).
 
         Args:
-            results: MediaPipe detection results
-            frame_width: Width of video frame
-            frame_height: Height of video frame
-
-        Returns:
-            Dictionary with 'Left' and 'Right' hand bounding boxes
-        """
-        hand_bboxes = {}
-
-        if not results.multi_hand_landmarks:
-            return hand_bboxes
-
-        # Process each detected hand
-        for idx, hand_landmarks in enumerate(results.multi_hand_landmarks):
-            # Get hand label (Left or Right)
-            hand_label = results.multi_handedness[idx].classification[0].label
-
-            # Extract all landmark coordinates
-            # IMAGE PROCESSING: Convert normalized coordinates to pixel coordinates
-            x_coords = []
-            y_coords = []
-
-            for landmark in hand_landmarks.landmark:
-                x = int(landmark.x * frame_width)
-                y = int(landmark.y * frame_height)
-                x_coords.append(x)
-                y_coords.append(y)
-
-            # Calculate bounding box
-            # IMAGE PROCESSING: Find min/max coordinates
-            min_x = max(0, min(x_coords) - HAND_BBOX_PADDING)
-            max_x = min(frame_width, max(x_coords) + HAND_BBOX_PADDING)
-            min_y = max(0, min(y_coords) - HAND_BBOX_PADDING)
-            max_y = min(frame_height, max(y_coords) + HAND_BBOX_PADDING)
-
-            # Store bounding box info
-            hand_bboxes[hand_label] = {
-                'x': min_x,
-                'y': min_y,
-                'width': max_x - min_x,
-                'height': max_y - min_y,
-                'center_x': (min_x + max_x) // 2,
-                'center_y': (min_y + max_y) // 2,
-                'landmarks': hand_landmarks
-            }
-
-        return hand_bboxes
-
-    def get_hand_positions_scaled(self, results, frame_width: int, frame_height: int,
-                                  screen_width: int, screen_height: int) -> Dict[str, Dict]:
-        """
-        Get hand positions scaled to game screen coordinates
-        IMAGE PROCESSING: Coordinate transformation from camera to screen space
-
-        Args:
-            results: MediaPipe results
-            frame_width: Camera frame width
-            frame_height: Camera frame height
+            results: MediaPipe hand results
             screen_width: Game screen width
             screen_height: Game screen height
 
         Returns:
-            Hand bounding boxes in screen coordinates
+            Dictionary with fingertip positions (X inverted for collision)
         """
-        # Get bboxes in camera coordinates
-        camera_bboxes = self.get_hand_bboxes(results, frame_width, frame_height)
+        fingertip_zones = {}
 
-        # Scale to screen coordinates
-        # IMAGE PROCESSING: Coordinate scaling
-        screen_bboxes = {}
+        if not results.multi_hand_landmarks:
+            return fingertip_zones
 
-        for hand_label, bbox in camera_bboxes.items():
-            # Scale factors
-            scale_x = screen_width / frame_width
-            scale_y = screen_height / frame_height
+        for idx, hand_landmarks in enumerate(results.multi_hand_landmarks):
+            hand_label = results.multi_handedness[idx].classification[0].label
+            index_tip = hand_landmarks.landmark[8]
 
-            screen_bboxes[hand_label] = {
-                'x': int(bbox['x'] * scale_x),
-                'y': int(bbox['y'] * scale_y),
-                'width': int(bbox['width'] * scale_x),
-                'height': int(bbox['height'] * scale_y),
-                'center_x': int(bbox['center_x'] * scale_x),
-                'center_y': int(bbox['center_y'] * scale_y),
-                'landmarks': bbox['landmarks']
+            # Invert X for collision detection (matches zone positions)
+            tip_x_collision = int((1 - index_tip.x) * screen_width)
+
+            # Y offset by top bar
+            tip_y = int(index_tip.y * (screen_height - TOPBAR_HEIGHT) + TOPBAR_HEIGHT)
+
+            zone_size = 40
+            fingertip_zones[hand_label] = {
+                'x': tip_x_collision - zone_size // 2,
+                'y': tip_y - zone_size // 2,
+                'width': zone_size,
+                'height': zone_size,
+                'center_x': tip_x_collision,
+                'center_y': tip_y
             }
+        return fingertip_zones
 
-        return screen_bboxes
-
-    def draw_landmarks(self, frame: np.ndarray, results) -> np.ndarray:
+    def get_fingertip_visuals(self, results, screen_width: int, screen_height: int) -> Dict[str, Dict]:
         """
-        Draw hand landmarks on frame
-        IMAGE PROCESSING: Visual overlay on video frame
+        Get fingertip positions for VISUAL display (NOT inverted, matches flipped video).
 
         Args:
-            frame: Video frame
-            results: MediaPipe results
+            results: MediaPipe hand results
+            screen_width: Game screen width
+            screen_height: Game screen height
+
+        Returns:
+            Dictionary with fingertip visual positions (no X inversion)
+        """
+        fingertip_visuals = {}
+
+        if not results.multi_hand_landmarks:
+            return fingertip_visuals
+
+        for idx, hand_landmarks in enumerate(results.multi_hand_landmarks):
+            hand_label = results.multi_handedness[idx].classification[0].label
+            index_tip = hand_landmarks.landmark[8]
+
+            # NO X inversion - use raw coordinates (matches flipped video)
+            tip_x_visual = int(index_tip.x * screen_width)
+            tip_y = int(index_tip.y * (screen_height - TOPBAR_HEIGHT) + TOPBAR_HEIGHT)
+
+            fingertip_visuals[hand_label] = {
+                'center_x': tip_x_visual,
+                'center_y': tip_y
+            }
+        return fingertip_visuals
+
+    def get_chin_position(self, face_results, screen_width: int, screen_height: int) -> Optional[Dict]:
+        """
+        Get chin position for COLLISION detection (inverted X).
+
+        Args:
+            face_results: MediaPipe FaceMesh results
+            screen_width: Game screen width
+            screen_height: Game screen height
+
+        Returns:
+            Dictionary with chin position (X inverted for collision), or None
+        """
+        if not face_results.multi_face_landmarks:
+            return None
+
+        face_landmarks = face_results.multi_face_landmarks[0]
+        chin_landmark = face_landmarks.landmark[152]
+
+        # Invert X for collision detection
+        chin_x_collision = int((1 - chin_landmark.x) * screen_width)
+        chin_y = int(chin_landmark.y * (screen_height - TOPBAR_HEIGHT) + TOPBAR_HEIGHT)
+
+        zone_size = 40
+        return {
+            'x': chin_x_collision - zone_size // 2,
+            'y': chin_y - zone_size // 2,
+            'width': zone_size,
+            'height': zone_size,
+            'center_x': chin_x_collision,
+            'center_y': chin_y
+        }
+
+    def get_chin_visual(self, face_results, screen_width: int, screen_height: int) -> Optional[Dict]:
+        """
+        Get chin position for VISUAL display (NOT inverted, matches flipped video).
+
+        Args:
+            face_results: MediaPipe FaceMesh results
+            screen_width: Game screen width
+            screen_height: Game screen height
+
+        Returns:
+            Dictionary with chin visual position (no X inversion), or None
+        """
+        if not face_results.multi_face_landmarks:
+            return None
+
+        face_landmarks = face_results.multi_face_landmarks[0]
+        chin_landmark = face_landmarks.landmark[152]
+
+        # NO X inversion - matches flipped video
+        chin_x_visual = int(chin_landmark.x * screen_width)
+        chin_y = int(chin_landmark.y * (screen_height - TOPBAR_HEIGHT) + TOPBAR_HEIGHT)
+
+        return {
+            'center_x': chin_x_visual,
+            'center_y': chin_y
+        }
+
+    def calculate_velocity(self, current_positions: Dict, previous_positions: Dict) -> Dict[str, float]:
+        """
+        Calculate velocity (speed) of hand movement for gesture detection.
+
+        Args:
+            current_positions: Current frame positions
+            previous_positions: Previous frame positions
+
+        Returns:
+            Dictionary with hand labels and their velocities
+        """
+        velocities = {}
+
+        for hand_label in current_positions:
+            if hand_label in previous_positions:
+                curr = current_positions[hand_label]
+                prev = previous_positions[hand_label]
+
+                # Calculate Euclidean distance
+                dx = curr['center_x'] - prev['center_x']
+                dy = curr['center_y'] - prev['center_y']
+                velocity = (dx**2 + dy**2) ** 0.5
+
+                velocities[hand_label] = velocity
+            else:
+                # First detection, assume zero velocity
+                velocities[hand_label] = 0.0
+
+        return velocities
+
+    def calculate_chin_velocity(self, current_position: Dict, previous_position: Optional[Dict]) -> float:
+        """
+        Calculate velocity of chin movement for gesture detection.
+
+        Args:
+            current_position: Current chin position
+            previous_position: Previous chin position
+
+        Returns:
+            Velocity (speed) of chin movement
+        """
+        if previous_position is None:
+            return 0.0
+
+        dx = current_position['center_x'] - previous_position['center_x']
+        dy = current_position['center_y'] - previous_position['center_y']
+        velocity = (dx**2 + dy**2) ** 0.5
+
+        return velocity
+
+    def update_velocity_tracking(self, fingertip_positions: Dict, chin_position: Optional[Dict]):
+        """
+        Update velocity tracking with current positions.
+
+        Args:
+            fingertip_positions: Current fingertip positions
+            chin_position: Current chin position
+        """
+        self.prev_fingertip_positions = fingertip_positions.copy() if fingertip_positions else {}
+        self.prev_chin_position = chin_position.copy() if chin_position else None
+
+    def draw_landmarks(self, frame: np.ndarray, hand_results, face_results) -> np.ndarray:
+        """
+        Draw hand landmarks on the frame.
+
+        Args:
+            frame: Video frame (already flipped)
+            hand_results: MediaPipe hand results
+            face_results: MediaPipe face results
 
         Returns:
             Frame with landmarks drawn
         """
-        if results.multi_hand_landmarks:
-            for hand_landmarks in results.multi_hand_landmarks:
-                # Draw landmarks and connections
-                # IMAGE PROCESSING: Overlay graphics on video
+        if hand_results.multi_hand_landmarks:
+            for hand_landmarks in hand_results.multi_hand_landmarks:
                 self.mp_draw.draw_landmarks(
-                    frame,
-                    hand_landmarks,
-                    self.mp_hands.HAND_CONNECTIONS,
-                    self.landmark_style,
-                    self.connection_style
+                    frame, hand_landmarks, self.mp_hands.HAND_CONNECTIONS,
+                    self.landmark_style, self.connection_style
                 )
-
         return frame
-
-    def draw_bounding_boxes(self, frame: np.ndarray, hand_bboxes: Dict[str, Dict],
-                           color=(0, 255, 0), thickness=3) -> np.ndarray:
-        """
-        Draw bounding boxes around hands
-        IMAGE PROCESSING: Visual feedback overlay
-
-        Args:
-            frame: Video frame
-            hand_bboxes: Dictionary of hand bounding boxes
-            color: Box color (BGR)
-            thickness: Line thickness
-
-        Returns:
-            Frame with bounding boxes drawn
-        """
-        for hand_label, bbox in hand_bboxes.items():
-            x, y, w, h = bbox['x'], bbox['y'], bbox['width'], bbox['height']
-
-            # Draw rectangle
-            # IMAGE PROCESSING: Draw bounding box
-            cv2.rectangle(frame, (x, y), (x + w, y + h), color, thickness)
-
-            # Draw label
-            label_text = f"{hand_label}"
-            cv2.putText(
-                frame,
-                label_text,
-                (x, y - 10),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                color,
-                2
-            )
-
-            # Draw center point
-            center_x, center_y = bbox['center_x'], bbox['center_y']
-            cv2.circle(frame, (center_x, center_y), 5, color, -1)
-
-        return frame
-
-    def check_hand_in_zone(self, hand_bbox: Dict, zone: Dict) -> bool:
-        """
-        Check if hand bounding box overlaps with a zone
-        IMAGE PROCESSING: Collision detection between hand and target zone
-
-        Args:
-            hand_bbox: Hand bounding box dict
-            zone: Zone dict with x, y, width, height
-
-        Returns:
-            True if hand overlaps zone
-        """
-        # Hand bounding box
-        hx1 = hand_bbox['x']
-        hy1 = hand_bbox['y']
-        hx2 = hx1 + hand_bbox['width']
-        hy2 = hy1 + hand_bbox['height']
-
-        # Zone bounding box
-        zx1 = zone['x']
-        zy1 = zone['y']
-        zx2 = zx1 + zone['width']
-        zy2 = zy1 + zone['height']
-
-        # Check overlap
-        # IMAGE PROCESSING: Rectangle intersection
-        overlap = (hx1 < zx2 and hx2 > zx1 and hy1 < zy2 and hy2 > zy1)
-
-        return overlap
 
     def cleanup(self):
         """Release MediaPipe resources"""
         self.hands.close()
-        print("✓ Hand tracker cleaned up")
-
-
-# ===== UTILITY FUNCTIONS =====
-
-def normalize_coordinates(x: int, y: int, width: int, height: int) -> Tuple[float, float]:
-    """
-    Normalize pixel coordinates to 0.0-1.0 range
-    IMAGE PROCESSING: Coordinate normalization
-    """
-    norm_x = x / width
-    norm_y = y / height
-    return norm_x, norm_y
-
-
-def denormalize_coordinates(norm_x: float, norm_y: float, width: int, height: int) -> Tuple[int, int]:
-    """
-    Convert normalized coordinates back to pixels
-    IMAGE PROCESSING: Coordinate denormalization
-    """
-    x = int(norm_x * width)
-    y = int(norm_y * height)
-    return x, y
+        self.face_mesh.close()
+        print("Hand and face tracker cleaned up")

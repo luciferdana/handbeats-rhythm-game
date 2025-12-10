@@ -51,15 +51,20 @@ class BeatmapGenerator:
 
     def _generate_simple_pattern(self) -> List[Tuple[float, str]]:
         """
-        Simple repeating pattern: K-S-H-S (Kick-Snare-HiHat-Snare)
+        Simple repeating pattern: K-S-H (Kick-Snare-HiHat)
         Easy to follow, very predictable
+        Uses moderate intervals (1.5-1.8 seconds)
         """
         beatmap = []
-        pattern = ['kick', 'snare', 'hihat', 'snare']
+        pattern = ['kick', 'snare', 'hihat']
         pattern_length = len(pattern)
 
-        for i in range(self.total_beats):
-            timestamp = i * self.beat_interval
+        # Use 3.5x beat intervals for comfortable spacing (1.75 seconds at 120 BPM)
+        note_interval = self.beat_interval * 3.5
+        num_notes = int(self.duration / note_interval)
+
+        for i in range(num_notes):
+            timestamp = i * note_interval
             instrument = pattern[i % pattern_length]
 
             # Small variation
@@ -73,97 +78,65 @@ class BeatmapGenerator:
     def _generate_smart_pattern(self) -> List[Tuple[float, str]]:
         """
         Smart drum pattern following typical drum rhythm
-        - Kick on downbeats (1, 3)
-        - Snare on backbeats (2, 4)
-        - Hi-hat as filler and offbeats
-
-        Musical and satisfying!
+        MEDIUM difficulty - moderate spacing (1.5 seconds)
         """
         beatmap = []
 
-        # 8-beat pattern (2 bars of 4/4 time)
-        # K = Kick, S = Snare, H = Hi-Hat
-        # Beat:  1   &   2   &   3   &   4   &
-        # Note:  K   H   S   H   K   H   S   H
+        # Simplified pattern for MEDIUM
         base_pattern = [
-            'kick',   # Beat 1 (downbeat)
-            'hihat',  # & (offbeat)
-            'snare',  # Beat 2 (backbeat)
-            'hihat',  # &
-            'kick',   # Beat 3 (downbeat)
-            'hihat',  # &
-            'snare',  # Beat 4 (backbeat)
-            'hihat'   # &
+            'kick',
+            'snare',
+            'hihat',
+            'kick',
+            'snare',
+            'hihat'
         ]
 
         pattern_length = len(base_pattern)
-        half_beat = self.beat_interval / 2  # For eighth notes
+        note_interval = self.beat_interval * 3  # 1.5 seconds at 120 BPM
 
-        beat_count = 0
-        timestamp = 0
+        num_notes = int(self.duration / note_interval)
 
-        while timestamp < self.duration:
-            instrument = base_pattern[beat_count % pattern_length]
+        for i in range(num_notes):
+            timestamp = i * note_interval
+            instrument = base_pattern[i % pattern_length]
 
-            # Add variation (substitute with different instrument)
+            # Add variation
             if random.random() < self.variation:
-                # Keep the rhythmic structure but vary instruments
-                if instrument == 'kick':
-                    # Sometimes replace kick with hihat
-                    instrument = random.choice(['kick', 'hihat'])
-                elif instrument == 'snare':
-                    # Sometimes replace snare with kick
-                    instrument = random.choice(['snare', 'kick'])
-                else:  # hihat
-                    # Sometimes replace hihat with kick or snare
-                    instrument = random.choice(['hihat', 'kick', 'snare'])
+                instrument = random.choice(['kick', 'snare', 'hihat'])
 
             beatmap.append((timestamp, instrument))
-
-            timestamp += half_beat
-            beat_count += 1
 
         return beatmap
 
     def _generate_complex_pattern(self) -> List[Tuple[float, str]]:
         """
-        Complex pattern with fills, syncopation, and variations
-        Challenging but still musical
+        Complex pattern - HARD difficulty
+        Faster spacing (around 1 second)
         """
         beatmap = []
 
-        # More varied pattern with fills
-        # 16-beat pattern (4 bars)
+        # Complex pattern for HARD
         base_pattern = [
-            'kick', 'hihat', 'snare', 'hihat',
-            'kick', 'kick', 'snare', 'hihat',
-            'kick', 'hihat', 'snare', 'hihat',
-            'kick', 'snare', 'snare', 'hihat'
+            'kick', 'snare', 'hihat',
+            'kick', 'hihat', 'snare',
+            'hihat', 'kick', 'snare'
         ]
 
         pattern_length = len(base_pattern)
-        half_beat = self.beat_interval / 2
+        note_interval = self.beat_interval * 2  # Around 1 second at 120 BPM
 
-        beat_count = 0
-        timestamp = 0
+        num_notes = int(self.duration / note_interval)
 
-        while timestamp < self.duration:
-            instrument = base_pattern[beat_count % pattern_length]
+        for i in range(num_notes):
+            timestamp = i * note_interval
+            instrument = base_pattern[i % pattern_length]
 
             # Higher variation for complex mode
             if random.random() < self.variation:
                 instrument = random.choice(['kick', 'snare', 'hihat'])
 
-            # Occasionally add double notes (faster succession)
-            if random.random() < 0.15:  # 15% chance
-                beatmap.append((timestamp, instrument))
-                timestamp += half_beat / 2  # Half the normal interval
-                instrument = random.choice(['kick', 'snare', 'hihat'])
-
             beatmap.append((timestamp, instrument))
-
-            timestamp += half_beat
-            beat_count += 1
 
         return beatmap
 

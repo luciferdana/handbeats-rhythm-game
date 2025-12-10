@@ -5,7 +5,6 @@ Calculates hit accuracy (PERFECT, GOOD, OK, MISS)
 """
 
 from typing import Optional, Tuple
-from config.constants import HIT_WINDOW_PERFECT, HIT_WINDOW_GOOD, HIT_WINDOW_OK
 
 
 class HitResult:
@@ -33,9 +32,9 @@ class CollisionDetector:
     Determines accuracy based on timing
     """
 
-    def __init__(self, perfect_window: int = HIT_WINDOW_PERFECT,
-                 good_window: int = HIT_WINDOW_GOOD,
-                 ok_window: int = HIT_WINDOW_OK):
+    def __init__(self, perfect_window: int,
+                 good_window: int,
+                 ok_window: int):
         """
         Initialize collision detector
 

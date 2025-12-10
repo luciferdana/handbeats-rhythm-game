@@ -22,10 +22,16 @@ class Lane:
             zone_config: Zone dict from constants (x, y, width, height, color, name, etc.)
             image_path: Path to instrument icon image
         """
+        # Collision coordinates (for hit detection)
         self.x = zone_config['x']
         self.y = zone_config['y']
         self.width = zone_config['width']
         self.height = zone_config['height']
+
+        # Visual coordinates (inverted X for display to match flipped video)
+        from config.constants import SCREEN_WIDTH
+        self.visual_x = SCREEN_WIDTH - self.x - self.width
+
         self.color = zone_config['color']
         self.name = zone_config['name']
         self.instrument = zone_config['instrument']
@@ -39,7 +45,7 @@ class Lane:
             self.image = pygame.transform.scale(self.image, (icon_size, icon_size))
         except:
             self.image = None
-            print(f"⚠ Could not load image: {image_path}")
+            print(f"[WARNING] Could not load image: {image_path}")
 
         # State
         self.is_active = False  # Hand is in zone
@@ -102,8 +108,11 @@ class Lane:
         bg_color = (*self.color, alpha)
         pygame.draw.rect(zone_surface, bg_color, (0, 0, self.width, self.height), border_radius=15)
 
-        # Blit zone surface to screen
-        screen.blit(zone_surface, (self.x, self.y))
+        # Use visual_x for rendering (inverted to match flipped video)
+        render_x = self.visual_x
+
+        # Blit zone surface to screen at visual position
+        screen.blit(zone_surface, (render_x, self.y))
 
         # Draw border
         border_alpha = int(100 + (self.glow_intensity * 155))
@@ -114,18 +123,18 @@ class Lane:
         thickness = int(self.border_thickness + self.glow_intensity * 3)
         pygame.draw.rect(border_surface, border_color, (0, 0, self.width, self.height),
                         width=thickness, border_radius=15)
-        screen.blit(border_surface, (self.x, self.y))
+        screen.blit(border_surface, (render_x, self.y))
 
         # Draw instrument image
         if self.image:
-            img_x = self.x + (self.width - self.image.get_width()) // 2
+            img_x = render_x + (self.width - self.image.get_width()) // 2
             img_y = self.y + (self.height - self.image.get_height()) // 2 + 20
             screen.blit(self.image, (img_x, img_y))
 
         # Draw label
         font = pygame.font.Font(None, 32)
         text = font.render(self.name, True, (255, 255, 255))
-        text_rect = text.get_rect(center=(self.x + self.width // 2, self.y + 30))
+        text_rect = text.get_rect(center=(render_x + self.width // 2, self.y + 30))
         screen.blit(text, text_rect)
 
         # Glow effect when active
@@ -149,7 +158,7 @@ class Lane:
                 border_radius=20
             )
 
-        screen.blit(glow_surface, (self.x - 20, self.y - 20))
+        screen.blit(glow_surface, (self.visual_x - 20, self.y - 20))
 
     def get_rect(self) -> pygame.Rect:
         """Get pygame Rect for collision detection"""
@@ -194,7 +203,7 @@ class LaneManager:
             lane = Lane(zone, image_path)
             self.lanes.append(lane)
 
-        print(f"✓ Created {len(self.lanes)} lanes")
+        print(f"[OK] Created {len(self.lanes)} lanes")
 
     def update(self, dt: float):
         """Update all lanes"""
@@ -213,27 +222,80 @@ class LaneManager:
                 return lane
         return None
 
-    def check_hand_collisions(self, hand_bboxes: dict) -> dict:
+    def check_collisions(self, fingertip_positions: dict, chin_position: dict) -> dict:
         """
-        Check which lanes are activated by hands
+        Check which lanes are activated
+        Hi-Hat uses chin, Kick/Snare use fingertips
 
         Args:
-            hand_bboxes: Dict of hand bounding boxes {'Left': {...}, 'Right': {...}}
+            fingertip_positions: Dict of fingertip zones {'Left': {...}, 'Right': {...}}
+            chin_position: Dict with chin zone or None
 
         Returns:
-            Dict of {instrument: hand_label} for active lanes
+            Dict of {instrument: label} for active lanes
         """
         active_lanes = {}
 
         for lane in self.lanes:
             lane_active = False
 
-            # Check each hand
-            for hand_label, hand_bbox in hand_bboxes.items():
-                if lane.check_hand_collision(hand_bbox):
+            # Hi-Hat uses chin detection
+            if lane.instrument == 'hihat':
+                if chin_position and lane.check_hand_collision(chin_position):
                     lane_active = True
-                    active_lanes[lane.instrument] = hand_label
-                    break
+                    active_lanes[lane.instrument] = 'Chin'
+
+            # Kick and Snare use fingertip detection
+            else:
+                for hand_label, fingertip_zone in fingertip_positions.items():
+                    if lane.check_hand_collision(fingertip_zone):
+                        lane_active = True
+                        active_lanes[lane.instrument] = hand_label
+                        break
+
+            lane.activate(lane_active)
+
+        return active_lanes
+
+    def check_collisions_with_velocity(self, fingertip_positions: dict, chin_position: dict,
+                                       fingertip_velocities: dict, chin_velocity: float,
+                                       velocity_threshold: float) -> dict:
+        """
+        Check which lanes are activated WITH velocity check for gesture detection.
+        Prevents "idle farming" - player must MOVE FAST to hit!
+
+        Args:
+            fingertip_positions: Dict of fingertip zones
+            chin_position: Dict with chin zone or None
+            fingertip_velocities: Dict of fingertip velocities
+            chin_velocity: Chin velocity
+            velocity_threshold: Minimum speed required for valid hit
+
+        Returns:
+            Dict of {instrument: label} for active lanes
+        """
+        active_lanes = {}
+
+        for lane in self.lanes:
+            lane_active = False
+
+            # Hi-Hat uses chin detection WITH velocity check
+            if lane.instrument == 'hihat':
+                if chin_position and lane.check_hand_collision(chin_position):
+                    # Check velocity - must be moving fast enough!
+                    if chin_velocity >= velocity_threshold:
+                        lane_active = True
+                        active_lanes[lane.instrument] = 'Chin'
+
+            # Kick and Snare use fingertip detection WITH velocity check
+            else:
+                for hand_label, fingertip_zone in fingertip_positions.items():
+                    if lane.check_hand_collision(fingertip_zone):
+                        # Check velocity - must be moving fast enough!
+                        if hand_label in fingertip_velocities and fingertip_velocities[hand_label] >= velocity_threshold:
+                            lane_active = True
+                            active_lanes[lane.instrument] = hand_label
+                            break
 
             lane.activate(lane_active)
 

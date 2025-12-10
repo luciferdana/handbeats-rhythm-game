@@ -49,27 +49,27 @@ class AudioManager:
             if os.path.exists(AUDIO_KICK):
                 self.sounds['kick'] = pygame.mixer.Sound(AUDIO_KICK)
                 self.sounds['kick'].set_volume(0.8)
-                print(f"✓ Loaded: {AUDIO_KICK}")
+                print(f"[OK] Loaded: {AUDIO_KICK}")
 
             if os.path.exists(AUDIO_SNARE):
                 self.sounds['snare'] = pygame.mixer.Sound(AUDIO_SNARE)
                 self.sounds['snare'].set_volume(0.7)
-                print(f"✓ Loaded: {AUDIO_SNARE}")
+                print(f"[OK] Loaded: {AUDIO_SNARE}")
 
             if os.path.exists(AUDIO_HIHAT):
                 self.sounds['hihat'] = pygame.mixer.Sound(AUDIO_HIHAT)
                 self.sounds['hihat'].set_volume(0.6)
-                print(f"✓ Loaded: {AUDIO_HIHAT}")
+                print(f"[OK] Loaded: {AUDIO_HIHAT}")
 
             # Feedback sounds (can be synthesized or simple beeps)
             # For now, we'll reuse instruments for feedback
             self.sounds['hit'] = self.sounds.get('hihat')  # Can replace with dedicated sound
             self.sounds['miss'] = None  # Can add a "thud" or error sound
 
-            print("✓ All audio files loaded successfully")
+            print("[OK] All audio files loaded successfully")
 
         except Exception as e:
-            print(f"⚠ Error loading sounds: {e}")
+            print(f"[WARNING] Error loading sounds: {e}")
 
     def load_main_beat(self):
         """
@@ -80,13 +80,13 @@ class AudioManager:
             if os.path.exists(AUDIO_MAIN_BEAT):
                 pygame.mixer.music.load(AUDIO_MAIN_BEAT)
                 pygame.mixer.music.set_volume(0.5)  # Background music at 50%
-                print(f"✓ Main beat loaded: {AUDIO_MAIN_BEAT}")
+                print(f"[OK] Main beat loaded: {AUDIO_MAIN_BEAT}")
                 return True
             else:
-                print(f"⚠ Main beat not found: {AUDIO_MAIN_BEAT}")
+                print(f"[WARNING] Main beat not found: {AUDIO_MAIN_BEAT}")
                 return False
         except Exception as e:
-            print(f"⚠ Error loading main beat: {e}")
+            print(f"[WARNING] Error loading main beat: {e}")
             return False
 
     def play_main_beat(self, loops=-1):
@@ -100,14 +100,14 @@ class AudioManager:
         if not self.music_playing:
             pygame.mixer.music.play(loops)
             self.music_playing = True
-            print("♪ Main beat started (looping)")
+            print("Main beat started (looping)")
 
     def stop_main_beat(self):
         """Stop the main beat music"""
         pygame.mixer.music.stop()
         self.music_playing = False
         self.music_paused = False
-        print("■ Main beat stopped")
+        print("[STOP] Main beat stopped")
 
     def pause_main_beat(self):
         """Pause the main beat"""
@@ -196,7 +196,7 @@ class AudioManager:
         """Stop all audio and cleanup"""
         self.stop_main_beat()
         pygame.mixer.quit()
-        print("✓ Audio manager cleaned up")
+        print("[OK] Audio manager cleaned up")
 
 
 # ===== AUDIO UTILITY FUNCTIONS =====

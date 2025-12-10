@@ -46,44 +46,45 @@ COLOR_ZONE_HIT = (255, 255, 255, 255)       # Full brightness on hit
 
 # ===== LANE/ZONE POSITIONS (IMAGE PROCESSING - Detection Areas) =====
 # These are the target zones where hands must be placed
-ZONE_WIDTH = 280
-ZONE_HEIGHT = 180
-ZONE_Y = 520  # Bottom of screen
+ZONE_WIDTH = 160
+ZONE_HEIGHT = 110
+ZONE_Y_SIDE = 400  # Side zones (hands) - comfortable hand position
+ZONE_Y_CENTER = 280  # Center zone (chest/dada) - nod down slightly
 
-# Left Zone (KICK)
+# Left Zone (KICK) - Collision at left (for inverted coords)
 KICK_ZONE = {
-    'x': 80,
-    'y': ZONE_Y,
+    'x': 1010,
+    'y': ZONE_Y_SIDE,
     'width': ZONE_WIDTH,
     'height': ZONE_HEIGHT,
     'color': COLOR_KICK,
     'name': 'KICK',
     'instrument': 'kick',
-    'hand_preference': 'Left'  # Left hand primarily
+    'hand_preference': 'Left'
 }
 
-# Center Zone (HI-HAT)
+# Center Zone (HI-HAT) - Center
 HIHAT_ZONE = {
-    'x': 500,
-    'y': ZONE_Y,
+    'x': 530,
+    'y': ZONE_Y_CENTER,
     'width': ZONE_WIDTH,
     'height': ZONE_HEIGHT,
     'color': COLOR_HIHAT,
     'name': 'HI-HAT',
     'instrument': 'hihat',
-    'hand_preference': 'Both'  # Either hand
+    'hand_preference': 'chin'
 }
 
-# Right Zone (SNARE)
+# Right Zone (SNARE) - Collision at right (for inverted coords)
 SNARE_ZONE = {
-    'x': 920,
-    'y': ZONE_Y,
+    'x': 50,
+    'y': ZONE_Y_SIDE,
     'width': ZONE_WIDTH,
     'height': ZONE_HEIGHT,
     'color': COLOR_SNARE,
     'name': 'SNARE',
     'instrument': 'snare',
-    'hand_preference': 'Right'  # Right hand primarily
+    'hand_preference': 'Right'
 }
 
 # All zones list
@@ -92,7 +93,10 @@ ZONES = [KICK_ZONE, HIHAT_ZONE, SNARE_ZONE]
 # ===== FALLING OBJECT CONFIGURATION =====
 OBJECT_SIZE = 80  # Size of falling note images
 OBJECT_SPAWN_Y = -100  # Spawn above screen
-OBJECT_TARGET_Y = ZONE_Y - 20  # Where objects should be hit
+
+# Target Y positions for each instrument (matching their zones)
+OBJECT_TARGET_Y_SIDE = ZONE_Y_SIDE - 20  # For kick and snare
+OBJECT_TARGET_Y_CENTER = ZONE_Y_CENTER - 20  # For hihat (higher)
 
 # Falling track positions (centered above each zone)
 KICK_TRACK_X = KICK_ZONE['x'] + (ZONE_WIDTH - OBJECT_SIZE) // 2
@@ -105,14 +109,18 @@ TRACK_POSITIONS = {
     'snare': SNARE_TRACK_X
 }
 
-# ===== HIT DETECTION WINDOWS (milliseconds) =====
-HIT_WINDOW_PERFECT = 80   # ±80ms for PERFECT
-HIT_WINDOW_GOOD = 150     # ±150ms for GOOD
-HIT_WINDOW_OK = 250       # ±250ms for OK
+# Target Y positions per instrument
+TARGET_Y_POSITIONS = {
+    'kick': OBJECT_TARGET_Y_SIDE,
+    'hihat': OBJECT_TARGET_Y_CENTER,
+    'snare': OBJECT_TARGET_Y_SIDE
+}
+
 
 # Hit detection Y range (vertical tolerance)
-HIT_ZONE_TOP = OBJECT_TARGET_Y - 50
-HIT_ZONE_BOTTOM = OBJECT_TARGET_Y + 50
+# Using side target as reference (most common)
+HIT_ZONE_TOP = OBJECT_TARGET_Y_SIDE - 50
+HIT_ZONE_BOTTOM = OBJECT_TARGET_Y_SIDE + 50
 
 # ===== SCORING SYSTEM =====
 SCORE_PERFECT = 100
@@ -134,7 +142,7 @@ TOPBAR_PADDING = 20
 
 # Game area (falling objects)
 GAME_AREA_Y = TOPBAR_HEIGHT
-GAME_AREA_HEIGHT = ZONE_Y - TOPBAR_HEIGHT
+GAME_AREA_HEIGHT = ZONE_Y_SIDE - TOPBAR_HEIGHT
 
 # Camera feed overlay position
 CAMERA_OVERLAY_X = 0

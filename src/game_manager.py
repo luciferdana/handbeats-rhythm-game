@@ -28,10 +28,11 @@ from ui.result_screen import ResultScreen
 class GameState(Enum):
     """Game state enumeration"""
     MENU = 1
-    COUNTDOWN = 2
-    PLAYING = 3
-    RESULT = 4
-    QUIT = 5
+    WARMUP = 2
+    COUNTDOWN = 3
+    PLAYING = 4
+    RESULT = 5
+    QUIT = 6
 
 
 class GameManager:
@@ -69,26 +70,7 @@ class GameManager:
 
         # IMAGE/VIDEO PROCESSING
         self.hand_tracker = HandTracker()
-        self.camera = cv2.VideoCapture(0)
-        
-        # Set HD resolution
-        self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
-        self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
-        
-        # Optimize video quality
-        self.camera.set(cv2.CAP_PROP_FPS, 60)  # Higher FPS for smoother video
-        self.camera.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))  # Better compression
-        self.camera.set(cv2.CAP_PROP_AUTOFOCUS, 1)  # Enable autofocus
-        self.camera.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)  # Auto exposure for better lighting
-
-        if not self.camera.isOpened():
-            print("❌ Error: Cannot open camera")
-            sys.exit(1)
-        
-        # Verify actual resolution
-        actual_width = self.camera.get(cv2.CAP_PROP_FRAME_WIDTH)
-        actual_height = self.camera.get(cv2.CAP_PROP_FRAME_HEIGHT)
-        print(f"✓ Camera initialized: {int(actual_width)}x{int(actual_height)}")
+        self.camera = None
 
         # Game components
         self.lane_manager = None
@@ -109,8 +91,12 @@ class GameManager:
         # Beatmap
         self.beatmap = None
 
-        print("✓ Game Manager initialized")
-        print("✓ All multimedia subsystems ready")
+        # Warmup tracking
+        self.warmup_objects = None
+        self.warmup_completed = False
+
+        print("Game Manager initialized")
+        print("All multimedia subsystems ready")
 
     def run(self):
         """Main game loop"""
@@ -162,6 +148,21 @@ class GameManager:
             if self.menu_screen.should_start_game():
                 self.start_game()
 
+        elif self.state == GameState.WARMUP:
+            # Update warmup objects
+            self.game_time += dt
+            for obj in self.warmup_objects:
+                obj.update(dt, self.game_time)
+
+            # Check if all warmup objects have passed target zone
+            all_passed = all(obj.y > obj.target_y + 100 or obj.is_dead for obj in self.warmup_objects)
+            if all_passed and not self.warmup_completed:
+                self.warmup_completed = True
+                self.state = GameState.COUNTDOWN
+                self.game_time = 0
+                self.countdown_time = 3.0
+                print("Warmup completed! Starting countdown...")
+
         elif self.state == GameState.COUNTDOWN:
             self.countdown_time -= dt
 
@@ -200,25 +201,63 @@ class GameManager:
         if not ret:
             return
 
-        # Flip frame horizontally for mirror effect
-        frame = cv2.flip(frame, 1)
+        # IMAGE PROCESSING: Detect hands and face using MediaPipe
+        frame, hand_results, face_results = self.hand_tracker.process_frame(frame)
 
-        # IMAGE PROCESSING: Detect hands using MediaPipe
-        results = self.hand_tracker.process_frame(frame)
-
-        # Get hand bounding boxes in screen coordinates
-        hand_bboxes = self.hand_tracker.get_hand_positions_scaled(
-            results,
-            CAMERA_WIDTH, CAMERA_HEIGHT,
-            SCREEN_WIDTH, SCREEN_HEIGHT - 80  # Accounting for top bar
+        # Get fingertip positions for COLLISION (inverted X)
+        fingertip_positions = self.hand_tracker.get_fingertip_positions(
+            hand_results,
+            SCREEN_WIDTH, SCREEN_HEIGHT
         )
 
-        # Store frame for rendering
-        self.current_frame = frame
-        self.current_hand_bboxes = hand_bboxes
+        # Get fingertip positions for VISUAL (not inverted, matches video)
+        fingertip_visuals = self.hand_tracker.get_fingertip_visuals(
+            hand_results,
+            SCREEN_WIDTH, SCREEN_HEIGHT
+        )
 
-        # Update lanes based on hand positions
-        active_lanes = self.lane_manager.check_hand_collisions(hand_bboxes)
+        # Get chin position for COLLISION (inverted X)
+        chin_position = self.hand_tracker.get_chin_position(
+            face_results,
+            SCREEN_WIDTH,
+            SCREEN_HEIGHT
+        )
+
+        # Get chin position for VISUAL (not inverted)
+        chin_visual = self.hand_tracker.get_chin_visual(
+            face_results,
+            SCREEN_WIDTH,
+            SCREEN_HEIGHT
+        )
+
+        # Calculate velocities for gesture detection
+        fingertip_velocities = self.hand_tracker.calculate_velocity(
+            fingertip_positions,
+            self.hand_tracker.prev_fingertip_positions
+        )
+        chin_velocity = self.hand_tracker.calculate_chin_velocity(
+            chin_position,
+            self.hand_tracker.prev_chin_position
+        ) if chin_position else 0.0
+
+        # Update velocity tracking for next frame
+        self.hand_tracker.update_velocity_tracking(fingertip_positions, chin_position)
+
+        # Store frame and detection data for rendering
+        self.current_frame = frame
+        self.current_fingertips = fingertip_positions
+        self.current_fingertips_visual = fingertip_visuals
+        self.current_chin = chin_position
+        self.current_chin_visual = chin_visual
+
+        # Update lanes with velocity check
+        active_lanes = self.lane_manager.check_collisions_with_velocity(
+            fingertip_positions,
+            chin_position,
+            fingertip_velocities,
+            chin_velocity,
+            self.hand_tracker.velocity_threshold
+        )
 
         # Update lane visual state
         self.lane_manager.update(dt)
@@ -261,6 +300,27 @@ class GameManager:
         if self.state == GameState.MENU:
             self.menu_screen.render()
 
+        elif self.state == GameState.WARMUP:
+            # Render warmup phase
+            self.game_screen.render(
+                camera_frame=self.current_frame,
+                score_manager=self.score_manager,
+                game_time=self.game_time,
+                total_time=10.0,
+                fingertip_positions=self.current_fingertips_visual,
+                chin_position=self.current_chin_visual
+            )
+            # Render lanes
+            self.lane_manager.render(self.screen)
+            # Render warmup objects
+            for obj in self.warmup_objects:
+                obj.render(self.screen)
+            # Show "WARM UP" text
+            font = pygame.font.Font(None, 72)
+            text = font.render("WARM UP", True, (255, 255, 0))
+            text_rect = text.get_rect(center=(SCREEN_WIDTH // 2, 100))
+            self.screen.blit(text, text_rect)
+
         elif self.state == GameState.COUNTDOWN:
             # Show countdown
             count = int(self.countdown_time) + 1
@@ -280,7 +340,8 @@ class GameManager:
             self.score_manager,
             self.game_time,
             self.total_game_duration,
-            self.current_hand_bboxes
+            self.current_fingertips_visual,  # Visual coords (not inverted)
+            self.current_chin_visual  # Visual coords (not inverted)
         )
 
         # Render lanes
@@ -291,14 +352,31 @@ class GameManager:
 
     def start_game(self):
         """Initialize and start new game"""
-        print("\n🎮 Starting new game...")
+        print("\nStarting new game...")
 
         # Get difficulty settings
         self.current_difficulty = self.menu_screen.get_selected_difficulty()
-        print(f"✓ Difficulty: {self.current_difficulty['name']}")
+        print(f"Difficulty: {self.current_difficulty['name']}")
+
+        # Initialize camera
+        if not self.camera:
+            print("Initializing camera...")
+            self.camera = cv2.VideoCapture(0)
+            # === PERBAIKAN: Memaksa resolusi 16:9 ===
+            self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+            self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+            # =======================================
+            if not self.camera.isOpened():
+                print("Error: Cannot open camera")
+                self.running = False
+                return
+            
+            actual_width = self.camera.get(cv2.CAP_PROP_FRAME_WIDTH)
+            actual_height = self.camera.get(cv2.CAP_PROP_FRAME_HEIGHT)
+            print(f"Camera initialized: {int(actual_width)}x{int(actual_height)}")
 
         # Generate beatmap
-        print("✓ Generating beatmap...")
+        print("Generating beatmap...")
         generator = BeatmapGenerator(
             duration=GameSettings.BEAT_DURATION,  # 9 seconds
             bpm=GameSettings.BEAT_BPM,
@@ -310,7 +388,7 @@ class GameManager:
         one_loop = generator.generate()
         num_loops = int(self.total_game_duration / GameSettings.BEAT_DURATION) + 1
         self.beatmap = loop_beatmap(one_loop, num_loops, GameSettings.BEAT_DURATION)
-        print(f"✓ Beatmap created: {len(self.beatmap)} notes")
+        print(f"Beatmap created: {len(self.beatmap)} notes")
 
         # Initialize game components
         self.lane_manager = LaneManager()
@@ -329,20 +407,43 @@ class GameManager:
         self.game_time = 0
         self.countdown_time = 3.0
         self.current_frame = None
-        self.current_hand_bboxes = {}
+        self.current_fingertips = {}
+        self.current_fingertips_visual = {}
+        self.current_chin = None
+        self.current_chin_visual = None
 
         # Reset UI screens
         self.menu_screen.reset()
         self.result_screen.reset()
 
-        # Enter countdown state
-        self.state = GameState.COUNTDOWN
+        # Create warmup objects (3 objects: kick, hihat, snare)
+        from src.falling_object import FallingObject
+        self.warmup_objects = []
+        warmup_sequence = [
+            (0.5, 'kick'),
+            (1.5, 'hihat'),
+            (2.5, 'snare')
+        ]
+        for spawn_time, instrument in warmup_sequence:
+            obj = FallingObject(instrument, spawn_time + 3.0, self.current_difficulty['falling_speed'])
+            self.warmup_objects.append(obj)
 
-        print("✓ Game started!\n")
+        self.warmup_completed = False
+
+        # Enter warmup state
+        self.state = GameState.WARMUP
+
+        print("Game started with warmup!\n")
 
     def end_game(self):
         """End current game"""
-        print("\n🏁 Game Over!")
+        print("\nGame Over!")
+
+        # Release camera
+        if self.camera:
+            self.camera.release()
+            self.camera = None
+            print("Camera released")
 
         # Stop music
         self.audio_manager.stop_main_beat()
@@ -359,7 +460,13 @@ class GameManager:
 
     def return_to_menu(self):
         """Return to main menu"""
-        print("↩ Returning to menu...")
+        print("[INFO] Returning to menu...")
+
+        # Release camera
+        if self.camera:
+            self.camera.release()
+            self.camera = None
+            print("Camera released")
 
         # Stop music
         self.audio_manager.stop_main_beat()
@@ -370,10 +477,12 @@ class GameManager:
 
     def cleanup(self):
         """Cleanup resources"""
-        print("\n🧹 Cleaning up...")
+        print("\n[CLEANUP] Cleaning up...")
 
         # Release camera
-        self.camera.release()
+        if self.camera:
+            self.camera.release()
+            self.camera = None
 
         # Cleanup audio
         self.audio_manager.cleanup()
@@ -385,5 +494,5 @@ class GameManager:
         pygame.quit()
         cv2.destroyAllWindows()
 
-        print("✓ Cleanup complete")
+        print("Cleanup complete")
         sys.exit(0)

@@ -11,21 +11,19 @@ class DifficultySettings:
 
     EASY = {
         'name': 'EASY',
-        'falling_speed': 3.5,           # Pixels per frame (slower)
-        'spawn_interval': 0.6,          # Seconds between spawns
+        'falling_speed': 5.0,           # Faster than before
         'pattern_type': 'simple',       # Simple repeating pattern
-        'pattern_variation': 0.1,       # 10% random variation
-        'perfect_window': 100,          # ±100ms for PERFECT
-        'good_window': 180,             # ±180ms for GOOD
-        'ok_window': 280,               # ±280ms for OK
+        'pattern_variation': 0.0,       # No random variation
+        'perfect_window': 120,          # ±120ms for PERFECT
+        'good_window': 200,             # ±200ms for GOOD
+        'ok_window': 300,               # ±300ms for OK
         'description': 'Relaxed pace, predictable patterns',
         'color': (46, 204, 113)         # Green
     }
 
     MEDIUM = {
         'name': 'MEDIUM',
-        'falling_speed': 5.5,           # Moderate speed
-        'spawn_interval': 0.4,          # Faster spawns
+        'falling_speed': 7.0,           # Faster speed
         'pattern_type': 'smart',        # Smart drum patterns
         'pattern_variation': 0.3,       # 30% variation
         'perfect_window': 80,           # ±80ms for PERFECT
@@ -37,8 +35,7 @@ class DifficultySettings:
 
     HARD = {
         'name': 'HARD',
-        'falling_speed': 7.5,           # Fast!
-        'spawn_interval': 0.3,          # Very fast spawns
+        'falling_speed': 9.5,           # Very fast!
         'pattern_type': 'complex',      # Complex patterns
         'pattern_variation': 0.5,       # 50% variation
         'perfect_window': 60,           # ±60ms for PERFECT (tight!)
@@ -96,16 +93,3 @@ class GameSettings:
     # Debug mode
     DEBUG_MODE = False           # Show FPS, hitboxes, etc.
     SHOW_FPS = True
-
-
-class CalibrationSettings:
-    """Settings for hand detection calibration"""
-
-    CALIBRATION_TIME = 3.0  # Seconds to verify hands
-    MIN_HAND_SIZE = 50      # Minimum hand bounding box size (pixels)
-    MAX_HAND_SIZE = 400     # Maximum hand bounding box size
-
-    # Required hand positions for calibration
-    REQUIRE_BOTH_HANDS = True
-    REQUIRE_LEFT_HAND = True
-    REQUIRE_RIGHT_HAND = True

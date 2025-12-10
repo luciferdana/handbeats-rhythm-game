@@ -4,6 +4,7 @@ Clean UI for game start
 """
 
 import pygame
+import os
 from config.constants import SCREEN_WIDTH, SCREEN_HEIGHT, COLOR_BG, COLOR_WHITE
 from config.settings import DifficultySettings
 
@@ -34,6 +35,15 @@ class MenuScreen:
         # Menu state
         self.should_start = False
 
+        # Load menu background image
+        menu_image_path = os.path.join('assets', 'image', 'menu.png')
+        try:
+            self.background_image = pygame.image.load(menu_image_path)
+            self.background_image = pygame.transform.scale(self.background_image, (SCREEN_WIDTH, SCREEN_HEIGHT))
+        except:
+            print(f"Could not load menu background: {menu_image_path}")
+            self.background_image = None
+
     def handle_events(self, events):
         """
         Handle menu input events
@@ -57,8 +67,11 @@ class MenuScreen:
 
     def render(self):
         """Render menu screen"""
-        # Background
-        self.screen.fill(COLOR_BG)
+        # Background - use image if available, otherwise fill with color
+        if self.background_image:
+            self.screen.blit(self.background_image, (0, 0))
+        else:
+            self.screen.fill(COLOR_BG)
 
         # Title
         title = self.title_font.render("HAND BEATS", True, COLOR_WHITE)
