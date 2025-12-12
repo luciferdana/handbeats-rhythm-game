@@ -73,23 +73,22 @@ class MenuScreen:
         else:
             self.screen.fill(COLOR_BG)
 
-        # Title
-        title = self.title_font.render("HAND BEATS", True, COLOR_WHITE)
-        title_rect = title.get_rect(center=(SCREEN_WIDTH // 2, 120))
-        self.screen.blit(title, title_rect)
+        # Semi-transparent dark overlay for better text visibility
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 120))
+        self.screen.blit(overlay, (0, 0))
 
-        # Subtitle
-        subtitle = self.subtitle_font.render("Gesture Rhythm Game", True, (150, 150, 150))
-        subtitle_rect = subtitle.get_rect(center=(SCREEN_WIDTH // 2, 180))
-        self.screen.blit(subtitle, subtitle_rect)
+        # Title with shadow
+        self._draw_text_with_shadow("HAND BEATS", self.title_font, COLOR_WHITE, (SCREEN_WIDTH // 2, 120), shadow_offset=4)
+
+        # Subtitle with shadow
+        self._draw_text_with_shadow("Gesture Rhythm Game", self.subtitle_font, (200, 200, 200), (SCREEN_WIDTH // 2, 180), shadow_offset=2)
 
         # Difficulty selection
         self._render_difficulty_options()
 
-        # Instructions
-        instructions = self.desc_font.render("Use UP/DOWN to select, ENTER to start", True, (200, 200, 200))
-        inst_rect = instructions.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT - 60))
-        self.screen.blit(instructions, inst_rect)
+        # Instructions with shadow
+        self._draw_text_with_shadow("Use UP/DOWN to select, ENTER to start", self.desc_font, (220, 220, 220), (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 60), shadow_offset=2)
 
     def _render_difficulty_options(self):
         """Render difficulty options"""
@@ -106,42 +105,83 @@ class MenuScreen:
             is_selected = (i == self.current_selection)
 
             if is_selected:
-                # Background box for selected
-                box_width = 500
-                box_height = 80
+                # Background box for selected with stronger opacity
+                box_width = 520
+                box_height = 85
                 box_x = (SCREEN_WIDTH - box_width) // 2
-                box_y = y - 30
+                box_y = y - 33
 
-                # Draw selection box
-                pygame.draw.rect(
-                    self.screen,
-                    diff_settings['color'],
-                    (box_x, box_y, box_width, box_height),
-                    width=0,
-                    border_radius=10
-                )
+                # Shadow box
+                shadow_box = pygame.Surface((box_width + 10, box_height + 10), pygame.SRCALPHA)
+                shadow_box.fill((0, 0, 0, 100))
+                self.screen.blit(shadow_box, (box_x - 5, box_y - 5))
+
+                # Draw selection box with opacity
+                box_surface = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
+                box_surface.fill((*diff_settings['color'], 220))
+                self.screen.blit(box_surface, (box_x, box_y))
+
+                # Border
                 pygame.draw.rect(
                     self.screen,
                     COLOR_WHITE,
                     (box_x, box_y, box_width, box_height),
-                    width=3,
+                    width=4,
+                    border_radius=12
+                )
+
+                text_color = COLOR_WHITE
+                desc_color = (255, 255, 255)
+            else:
+                # Add semi-transparent background for unselected options
+                box_width = 480
+                box_height = 75
+                box_x = (SCREEN_WIDTH - box_width) // 2
+                box_y = y - 28
+
+                # Darker and more opaque background for better visibility
+                box_surface = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
+                box_surface.fill((0, 0, 0, 200))  # More opaque black
+                self.screen.blit(box_surface, (box_x, box_y))
+
+                # Add subtle border for unselected
+                pygame.draw.rect(
+                    self.screen,
+                    (60, 60, 60),  # Dark gray border
+                    (box_x, box_y, box_width, box_height),
+                    width=2,
                     border_radius=10
                 )
 
-                text_color = COLOR_BG
-            else:
-                text_color = diff_settings['color']
+                text_color = (255, 255, 255)  # White text for better contrast
+                desc_color = (200, 200, 200)  # Lighter description
 
-            # Difficulty name
-            diff_text = self.option_font.render(difficulty, True, text_color if not is_selected else COLOR_BG)
-            diff_rect = diff_text.get_rect(center=(SCREEN_WIDTH // 2, y))
-            self.screen.blit(diff_text, diff_rect)
+            # Difficulty name with shadow
+            self._draw_text_with_shadow(difficulty, self.option_font, text_color, (SCREEN_WIDTH // 2, y), shadow_offset=3)
 
-            # Description
-            desc_text = self.desc_font.render(diff_settings['description'], True,
-                                             (200, 200, 200) if not is_selected else (50, 50, 50))
-            desc_rect = desc_text.get_rect(center=(SCREEN_WIDTH // 2, y + 30))
-            self.screen.blit(desc_text, desc_rect)
+            # Description with shadow
+            self._draw_text_with_shadow(diff_settings['description'], self.desc_font, desc_color, (SCREEN_WIDTH // 2, y + 30), shadow_offset=2)
+
+    def _draw_text_with_shadow(self, text, font, color, position, shadow_offset=2):
+        """
+        Draw text with shadow for better readability
+
+        Args:
+            text: Text to render
+            font: Pygame font object
+            color: Text color (RGB tuple)
+            position: (x, y) center position
+            shadow_offset: Pixel offset for shadow
+        """
+        # Draw shadow (black)
+        shadow = font.render(text, True, (0, 0, 0))
+        shadow_rect = shadow.get_rect(center=(position[0] + shadow_offset, position[1] + shadow_offset))
+        self.screen.blit(shadow, shadow_rect)
+
+        # Draw main text
+        main_text = font.render(text, True, color)
+        main_rect = main_text.get_rect(center=position)
+        self.screen.blit(main_text, main_rect)
 
     def get_selected_difficulty(self):
         """Get selected difficulty settings"""

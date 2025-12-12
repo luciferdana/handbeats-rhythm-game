@@ -1,11 +1,31 @@
 # HandBeats: Gesture Rhythm Game
 Tugas Besar Sistem / Teknologi Multimedia - IF25-40305
 
+![Menu Screen](screenshots/logo.png)
+
 ## Deskripsi Project
 HandBeats adalah game interaktif berbasis kamera yang menampilkan bounding box instrumen musik seperti "Kick", "Snare", dan "Hi-Hat" di layar. Pemain harus mengetuk area tersebut menggunakan gesture tangan tepat waktu mengikuti irama musik. Sistem mendeteksi pergerakan tangan dengan MediaPipe Hands, dan jika posisi serta timing sesuai, maka akan muncul suara beat, efek visual, serta peningkatan skor.
 
 ## Anggota Kelompok
-- Ferdana Al-Hakim 
+- Ferdana Al-Hakim
+
+## Screenshots
+
+### Main Menu
+![Menu](screenshots/menu.png)
+*Menu utama dengan pilihan difficulty level (Easy, Medium, Hard)*
+
+### Gameplay
+![Gameplay](screenshots/gameplay.png)
+*In-game screenshot menunjukkan hand tracking dan falling objects*
+
+### Result Screen
+![Result](screenshots/result.png)
+*Layar hasil dengan skor, akurasi, dan statistik permainan*
+
+### System Flowchart
+![Flowchart](screenshots/flowchart.png)
+*Alur sistem HandBeats dari mulai hingga selesai* 
 
 ## Komponen Multimedia
 
@@ -73,16 +93,28 @@ handbeats-rhythm-game/
 │   ├── game_screen.py       # Game UI with video overlay
 │   └── result_screen.py     # Result stats
 │
-└── assets/                  # Media files
-    ├── audio/
-    │   ├── main.mp3         # Main beat (9s loop)
-    │   ├── kick.wav
-    │   ├── snare-drum-341273.mp3
-    │   └── open-hi-hat-431740.mp3
-    └── image/
-        ├── kick.png
-        ├── snare.PNG
-        └── hi-hat.PNG
+├── assets/                  # Media files
+│   ├── audio/
+│   │   ├── main.mp3         # Main beat (9s loop)
+│   │   ├── kick.wav
+│   │   ├── snare-drum-341273.mp3
+│   │   └── open-hi-hat-431740.mp3
+│   └── image/
+│       ├── kick.png
+│       ├── snare.PNG
+│       ├── hi-hat.PNG
+│       └── menu.png
+│
+├── screenshots/             # Game screenshots
+│   ├── menu.png
+│   ├── gameplay.png
+│   ├── result.png
+│   └── flowchart.png
+│
+└── report/                  # Documentation
+    ├── handbeats_report.tex
+    ├── handbeats_report.pdf
+    └── Referensi.bib
 ```
 
 ## Installation
@@ -142,5 +174,51 @@ python main.py
 - **Total Latency**: <50ms (detection + rendering)
 - **Audio Latency**: <10ms
 
+## Development Logbook
+
+| Tanggal | Kegiatan | Hasil / Progress Pekerjaan |
+|---------|----------|----------------------------|
+| 28/10/2024 | Brainstorming & Konsep | • Menentukan tema rhythm game berbasis gesture<br>• Menentukan judul project "HandBeats"<br>• Merancang konsep dasar gameplay dengan falling objects dan hand tracking<br>• Memilih teknologi: MediaPipe, OpenCV, Pygame |
+| 05/11/2024 | Setup Repository | • Inisialisasi repository di GitHub<br>• Membuat struktur folder project<br>• Membuat README.md awal<br>• Menentukan dependencies yang diperlukan |
+| 14/11/2024 | Implementasi Inti | **Sistem Hand Tracking:**<br>• Implementasi MediaPipe Hands untuk deteksi tangan<br>• Setup camera capture menggunakan OpenCV<br>• Integrasi hand landmarks dengan koordinat layar<br>• Testing akurasi tracking<br><br>**Fondasi Game:**<br>• Membuat class HandTracker untuk image processing<br>• Membuat class RhythmGame untuk rendering<br>• Implementasi game loop dasar<br>• Setup pygame display dan event handling |
+| 23/11/2024 | Koleksi Asset | • Upload audio assets: kick, snare, hi-hat sounds<br>• Upload main beat music (9-second loop)<br>• Membuat icon instrumen (kick.png, snare.PNG, hi-hat.PNG)<br>• Organisasi assets ke dalam folder terstruktur |
+| 28/11/2024 | Implementasi Game Lengkap | **Sistem Inti:**<br>• Audio Manager: seamless music looping dan SFX playback<br>• Lane System: target zones untuk setiap instrumen<br>• Falling Objects: note generation dengan timing<br>• Collision Detection: rectangle intersection dan timing windows<br>• Score Manager: scoring system dengan combo multiplier<br><br>**Fitur Gameplay:**<br>• Pattern generator untuk beatmap (simple, smart, complex)<br>• Difficulty levels: Easy, Medium, Hard<br>• Timing accuracy: PERFECT, GOOD, OK, MISS<br>• Visual effects: glow, hit flash, lane activation<br><br>**Testing:**<br>• Kalibrasi timing windows<br>• Performance testing (target 60 FPS)<br>• Verifikasi audio sync |
+| 07/12/2024 | Peningkatan UI | **Sistem Menu:**<br>• Implementasi MenuScreen dengan pilihan difficulty<br>• Desain UI dengan background image<br>• Navigasi arrow key (UP/DOWN)<br>• Transisi yang smooth<br><br>**Result Screen:**<br>• Statistik lengkap: Score, Accuracy, Max Combo<br>• Sistem ranking (S, A, B, C, D)<br>• Breakdown per kategori (Perfect, Good, OK, Miss)<br>• Opsi retry dan kembali ke menu<br><br>**Polish Visual:**<br>• Text shadows untuk keterbacaan<br>• Semi-transparent overlays<br>• Indikator difficulty berwarna<br>• Peningkatan kontras pada background |
+| 10/12/2024 | Refactoring & Dokumentasi | **Kualitas Kode:**<br>• Menghapus emoji characters dari console output<br>• Standardisasi format print: [OK], [WARNING], [ERROR]<br>• Cleanup imports dan unused code<br>• Peningkatan code readability<br><br>**Dokumentasi:**<br>• Membuat flowchart sistem (draw.io)<br>• Membuat laporan LaTeX lengkap<br>• Update README.md dengan screenshots<br>• Dokumentasi komponen multimedia<br><br>**Testing Final:**<br>• Cross-platform testing<br>• Pengecekan kompatibilitas camera<br>• Pengukuran audio latency<br>• Performance benchmark |
+| 12/12/2024 | Finalisasi & Submission | **Penyempurnaan UI/UX:**<br>• Perbaikan keterbacaan teks menu dengan text shadows<br>• Peningkatan visibility opsi yang tidak dipilih (background opacity)<br>• Enhanced visual contrast untuk semua screens<br><br>**Finalisasi Dokumentasi:**<br>• Compile laporan LaTeX final (10 halaman)<br>• Menambahkan link GitHub repository ke dokumentasi<br>• Membuat folder screenshots dengan 4 gambar (menu, gameplay, result, flowchart)<br>• Update README.md dengan Development Logbook lengkap<br>• Menambahkan referensi dan credits<br><br>**Quality Assurance:**<br>• Review kode final<br>• Verifikasi kelengkapan assets<br>• Testing game secara menyeluruh<br>• Persiapan material submission<br><br>**Project Complete:** ✅ |
+
+### Key Milestones
+- ✅ **Week 1-2**: Concept & Planning
+- ✅ **Week 3**: Repository Setup & Initial Research
+- ✅ **Week 4**: Core Hand Tracking Implementation
+- ✅ **Week 5**: Asset Integration
+- ✅ **Week 6**: Complete Game Mechanics
+- ✅ **Week 7**: UI/UX Enhancement
+- ✅ **Week 8**: Polish & Documentation
+
+## Demo Video
+
+Video presentasi dan gameplay demo HandBeats:
+
+🎥 **[Link Demo Video](https://drive.google.com/drive/folders/1yi_bBCLpoROTS0yNwP34aYQUylI4HONZ?usp=drive_link)**
+
+
+## Repository
+
+Source code lengkap project ini tersedia di GitHub:
+
+🔗 **https://github.com/luciferdana/handbeats-rhythm-game**
+
 ## Referensi
-https://vt.tiktok.com/ZSydyTok3/
+- **Inspirasi Gameplay**: https://vt.tiktok.com/ZSydyTok3/
+- **MediaPipe Documentation**: https://developers.google.com/mediapipe
+- **Pygame Documentation**: https://www.pygame.org/docs/
+- **Sound Effects**: https://pixabay.com/
+
+## License
+
+This project is created for educational purposes as part of the Multimedia Systems course at Institut Teknologi Sumatera (ITERA).
+
+---
+
+**HandBeats** - Gesture-based Rhythm Game © 2024

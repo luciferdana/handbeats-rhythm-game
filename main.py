@@ -9,8 +9,6 @@ MULTIMEDIA PROCESSING PROJECT
 
 Team Members:
 - Ferdana Al-Hakim
-- Yesa Viola
-- Nydia Renli Sinaga
 
 Course: Sistem/Teknologi Multimedia - IF25-40305
 """
@@ -36,8 +34,6 @@ def main():
     print("  [OK] IMAGE: MediaPipe hand detection & tracking")
     print("  [OK] AUDIO: Seamless music loop + sound effects")
     print("  [OK] VIDEO: Real-time camera overlay rendering")
-    print("\nTeam: Ferdana")
-    print("Course: Sistem/Teknologi Multimedia\n")
     print("=" * 60)
     print("\nInitializing game...\n")
 
